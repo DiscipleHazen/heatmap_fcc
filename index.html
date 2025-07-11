@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" width="device-width, initial-scale=1.0">
+        <style>
+            body {
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+        <h1 id="title">Monthly Global Land Temperatures 1753 - 2015 </h1>
+        <h2 id="description">Base Temperature of 8.66 Celcius</h2>
+        <div id="data"></div>
+        <div id="tooltip"></div>
+    </body>
+</html>
+
+<script type="module">
+    import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+    fetch('https://raw.githubusercontent.com/freeCodeCamp/ProjectReferenceData/master/global-temperature.json')
+        .then(response => response.json())
+        .then(data => {
+            console.log(data)
+            data = data.monthlyVariance;
+            console.log(data);
+
+            function colorSwitch(d) {
+                    switch(true) {
+                        case d.variance <= -4:
+                            return colors.veryCold;
+                        break;
+                        case d.variance <= -3 && d.variance > -4:
+                            return colors.cold;
+                        break;
+                        case d.variance <= -2 && d.variance > -3:
+                            return colors.prettyCold;
+                        break;
+                        case d.variance <= -1 && d.variance > -2:
+                            return colors.kindaCold;
+                        break;
+                        case d.variance < 0 && d.variance > -1:
+                            return colors.ehCold;
+                        break;
+                        case d.variance === 0:
+                            return colors.neutral;
+                        break;
+                        case d.variance <= 1 && d.variance > 0:
+                            return colors.ehHot;
+                        break;
+                        case d.variance <= 2 && d.variance > 1:
+                            return colors.kindaHot;
+                        break;
+                        case d.variance <= 3 && d.variance > 2:
+                            return colors.prettyHot;
+                        break;
+                        case d.variance <= 4 && d.variance > 3:
+                            return colors.hot;
+                        break;
+                        case d.variance > 4:
+                            return colors.veryHot;
+                        break;
+                    }
+            }
+
+            const tooltip = d3.select('#tooltip');
+
+            const h = 700;
+            const w = 1600;
+            const padding = 60;
+
+            const months = ["January", "February", "March", "April", "May", "June", 
+                "July", "August", "September", "October", "November", "December"];
+            
+            const colors = {
+                veryCold: '#292f56',
+                cold: '#1e4572',
+                prettyCold: '#005c8b',
+                kindaCold: '#007498',
+                ehCold: '#008ba0',
+                neutral: '#555',
+                ehHot: '#e29f00',
+                kindaHot: '#ec8800',
+                prettyHot: '#f46d00',
+                hot: '#fb4b00',
+                veryHot: '#ff0000'
+            }
+
+            console.log(new Date(data[0].year, 0));
+            const xTimeScale = d3.scaleTime()
+                .domain([
+                new Date(data[0].year, 0),
+                new Date(data[data.length - 1].year, 0)
+                ])
+                .range([padding, w - padding]);
+            const xAxis = d3.axisBottom(xTimeScale).tickFormat(d3.timeFormat('%Y'));
+            // tickFormat(d3.timeFormat(%Y));
+            const yScale = d3.scaleBand()
+                .domain(months)
+                .range([padding, h - 20]);
+            const yAxis = d3.axisLeft(yScale);
+
+            console.log("xAxis scale range:", xTimeScale.range());
+
+            const chartSVG = d3.select('#data')
+                .append('svg')
+                .attr('height', h)
+                .attr('width', w);
+
+            chartSVG.append('g')
+                .attr('transform', `translate(0, ${h - 20})`)
+                .attr('id', 'x-axis')
+                .call(xAxis);
+            
+            chartSVG.append('g')
+                .attr('transform', `translate(${padding}, 0)`)
+                .attr('id', 'y-axis')
+                .call(yAxis);
+
+            chartSVG.selectAll('rect')
+                .data(data)
+                .enter()
+                .append('rect')
+                .attr('data-month', d => d.month - 1)
+                .attr('data-year', d => d.year)
+                .attr('data-temp', d => d.variance)
+                .attr('x', (d, i) => xTimeScale(new Date(d.year, 0)))
+                .attr('y', d => yScale(months[d.month - 1]))
+                .attr('height', d => yScale.bandwidth())
+                .attr('width', (w - 2 * padding) / (data.length / 12))
+                .attr('class', 'cell')
+                .attr('fill', colorSwitch)
+                
+                .on('mouseover', function(event, d){
+                    tooltip
+                        .style('opacity', 0.8)
+                        .attr('data-year', d.year)
+                        .html(`${months[d.month - 1]}, ${d.year}<br/>
+                        ${(8.66 + d.variance).toFixed(3)}&#8451;<br/>(${(d.variance.toFixed(3) >= 0 ? '+' : '') + d.variance.toFixed(3)}&#8451;)`)
+                        .style('position', 'absolute')
+                        .style('left', (event.pageX + 20) + 'px')
+                        .style('top', (event.pageY + 20) + 'px')
+                        .style('width', '120px')
+                        .style('padding', '5px')
+                        .style('color', 'white')
+                        .style('border', '1px solid black')
+                        .style('font-size', '20px')
+                        .style('background-color', () => colorSwitch(d))
+                        
+                    d3.select(this)
+                        .style('stroke', 'black')
+                        .style('stroke-width', '2px')
+
+                })
+                .on('mousemove', function(event, d) {
+                    tooltip
+                        .style('left', (event.pageX + 20) + 'px')
+                        .style('top', (event.pageY + 20) + 'px')
+                })
+                .on('mouseout', function(event, d){
+                    tooltip
+                        .style('opacity', 0);
+
+                    d3.select(this)
+                        .style('stroke', null)
+                        .style('stroke-width', '2px');
+                })
+
+
+                const legend = chartSVG.append('g')
+                                    .attr('height', 40)
+                                    .attr('id', 'legend')
+                                    .attr('transform', `translate(${70}, ${20})`)
+
+                const arrColors = Object.values(colors);
+                arrColors.forEach((color, i) => {
+                    legend.append('rect')
+                    .attr('x', i * 30)
+                    .attr('y', 0)
+                    .attr('fill', color)
+                    .attr('width', 30)
+                    .attr('height', 30)
+                })
+                const colorTemps = [
+                    '<4',
+                    '-4',
+                    '-3',
+                    '-2',
+                    '-1',
+                    '0',
+                    '+1',
+                    '+2',
+                    '+3',
+                    '+4',
+                    '>5'
+                ]
+                const colorScale = d3.scaleBand()
+                    .domain(colorTemps)
+                    .range([0, colorTemps.length * 30])
+                
+                const colorAxis = d3.axisTop(colorScale);
+
+                legend.append('g')
+                    .attr('transform', `translate(0, -3)`)
+                    .call(colorAxis);
+                
+                legend.select('.domain').remove();
+
+                chartSVG.selectAll('text')
+                    .style('font-size', '11px')
+
+
+        })
+        
+
+   
+</script>
